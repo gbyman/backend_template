@@ -264,6 +264,33 @@ backend_template/
             │   └── R__sample_stored_procedure.sql
             └── mybatis/mapper/                # MyBatis Mapper XML
                 └── SampleMapper.xml
+
+└── module-batch/                   # Batch 모듈
+    ├── build.gradle
+    └── src/main/
+        ├── java/app/backend/batch/
+        │   ├── BatchApplication.java
+        │   ├── core/
+        │   │   ├── config/
+        │   │   │   ├── QuartzConfig.java      # Quartz 스케줄러 설정
+        │   │   │   └── ShedLockConfig.java    # 분산 락 설정
+        │   │   ├── base/                      # AbstractJobConfig
+        │   │   ├── batch/                     # BatchJobRunner
+        │   │   ├── listener/                  # QuartzJobListener
+        │   │   ├── property/                  # QuartzJobProperties
+        │   │   └── utils/                     # BatchJobProvider
+        │   ├── jobs/                          # Batch Job 구현
+        │   │   └── cleanup/                   # 정리 작업
+        │   │       └── MailHistoryCleanupJobConfig.java
+        │   └── quartz/                        # Quartz 통합
+        │       ├── executor/                  # QuartzBatchJobExecutor
+        │       └── registrar/                 # QuartzBatchJobRegistrar
+        └── resources/
+            ├── application.yml                # Batch 설정
+            ├── schedule.yml                   # 스케줄 정의 (YAML)
+            └── db/migration/                  # Flyway 마이그레이션
+                ├── V1__create_quartz_tables.sql
+                └── V2__create_shedlock_table.sql
 ```
 
 ## 🌍 환경별 실행 방법

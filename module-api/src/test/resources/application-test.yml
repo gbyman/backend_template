@@ -1,0 +1,105 @@
+spring:
+  application:
+    name: backend_template
+
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.H2Dialect
+    defer-datasource-initialization: true
+
+  sql:
+    init:
+      mode: never
+
+  flyway:
+    enabled: false
+
+  error:
+    response:
+      include-stack-trace: false
+
+  # Mail (테스트에서는 사용하지 않지만, 빈 생성을 위한 기본값)
+  mail:
+    host: localhost
+    port: 587
+    username: test
+    password: test
+
+# P6Spy 비활성화
+decorator:
+  datasource:
+    p6spy:
+      enable-logging: false
+
+# JWT 테스트 설정
+jwt:
+  use-redis: false
+  secret: test-secret-key-for-testing-purposes-only-minimum-256-bits-long-string
+  access-expiration-duration: 30m
+  refresh-expiration-duration: 7d
+  refresh-cookie-secure: false
+
+# Redis 비활성화
+redis:
+  enabled: false
+
+# 중복 로그인 허용 ID
+allow-duplicate:
+  ids:
+
+# Security 공개 URI
+security:
+  public-uris:
+    /api/health
+    , /v3/api-docs/**
+    , /swagger-ui/**
+    , /swagger-ui.html
+
+# CORS 설정
+cors:
+  allowed-origin:
+    http://localhost:3000
+
+# 파일 저장소 (테스트에서는 사용하지 않음)
+storage:
+  type: local
+  local:
+    upload-path: ./test-uploads
+
+# 메일 발송
+mail:
+  enabled: false
+  from-address: test@example.com
+
+# 파일 업로드
+file-upload:
+  allowed-extensions:
+    - jpg
+    - png
+    - pdf
+  max-size-in-bytes: 10485760
+
+# 다국어 설정
+app:
+  i18n:
+    default-lang: ko
+    supported-langs: ko, en
+  rate-limit:
+    enabled: false
+
+# 로깅
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    app.backend: DEBUG

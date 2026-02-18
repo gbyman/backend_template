@@ -1,0 +1,101 @@
+HELP.md
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+### Generated ###
+**/generated/
+**/build/generated/
+
+### Logs ###
+logs/
+*.log
+
+### 환경 설정 파일 (민감 정보 포함) ###
+.env
+.env.local
+.env.dev
+.env.prod
+*.env
+
+### Gradle Properties (Nexus 인증 정보 포함) ###
+gradle.properties
+
+# Profile별 설정 파일 (서버에서만 관리)
+# application-local.yml은 각 개발자마다 다를 수 있으므로 제외
+# application-dev.yml
+# application-prod.yml
+
+### Docker ###
+docker/data/
+docker-compose.override.yml
+
+### ELK Stack 데이터 ###
+elasticsearch-data/
+logstash-data/
+kibana-data/
+
+### 백업 파일 ###
+backups/
+*.sql.backup
+*.dump
+
+### MacOS ###
+.DS_Store
+.AppleDouble
+.LSOverride
+
+### Windows ###
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+### 업로드 파일 ###
+uploads/
+files/
+
+### 기타 ###
+*.swp
+*.swo
+*~
+.project
+.metadata
+tmp/
+*.tmp
+*.bak
+
+### 참고 문서 (내부용, Git 제외) ###
+docs/db/REFERENCE_*.md

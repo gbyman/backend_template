@@ -1,0 +1,14 @@
+# 테스트용 YAML 설정 파일
+test:
+  string-value: "Hello World"
+  number-value: 12345
+  boolean-value: true
+  list-value:
+    - item1
+    - item2
+    - item3
+  map-value:
+    key1: value1
+    key2: value2
+    nested:
+      deep-key: deep-value

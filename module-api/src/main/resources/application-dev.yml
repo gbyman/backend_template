@@ -1,0 +1,99 @@
+# 개발 서버 환경 설정
+# 환경변수 또는 Jasypt 암호화 방식 모두 지원
+spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: ${DB_URL:jdbc:postgresql://dev-db-server:5432/template_dev_db}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD}
+    # Jasypt 사용 시: password: ENC(암호화된값)
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 10000
+      validation-timeout: 5000
+      max-lifetime: 1800000
+      idle-timeout: 600000
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: validate  # 개발은 검증만, 스키마 변경 안함
+    properties:
+      hibernate:
+        format_sql: false
+        show_sql: false
+        default_batch_fetch_size: 100
+    show-sql: false
+
+  # Flyway 설정 (개발)
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+    validate-on-migrate: true
+    clean-disabled: true  # 실수로 데이터 삭제 방지
+
+  error:
+    response:
+      include-stack-trace: false
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+      # Jasypt 사용 시: password: ENC(암호화된값)
+      timeout: 3000
+
+  cache:
+    type: redis
+    redis:
+      time-to-live: 3600000
+
+# P6Spy 설정 (개발 서버는 최소화)
+decorator:
+  datasource:
+    p6spy:
+      enable-logging: true
+      multiline: false
+      logging: slf4j
+      tracing:
+        include-parameter-values: false
+
+# Swagger 활성화 (개발 환경)
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+# 로그 설정은 logback-spring.xml에서 관리
+
+# Actuator 설정
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,metrics,prometheus"
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# Security 공개 URI 설정
+security:
+  public-uris:
+    /api/health
+    , /api/env
+    , /v3/api-docs/**
+    , /swagger-ui/**
+    , /swagger-ui.html
+
+# CORS 설정
+cors:
+  allowed-origin:
+    ${CORS_ALLOWED_ORIGIN:http://localhost:3000,http://dev-frontend.example.com}

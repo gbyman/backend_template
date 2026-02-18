@@ -1,0 +1,5 @@
+# 잘못된 YAML 파일 (탭 문자 사용 - YAML에서는 탭 금지)
+invalid:
+	key: value
+	nested:
+		tab-indented: "This will fail"

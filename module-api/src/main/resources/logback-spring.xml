@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<configuration>
+    <conversionRule conversionWord="clr" converterClass="org.springframework.boot.logging.logback.ColorConverter"/>
+
+    <!-- 기본 프로퍼티 -->
+    <property name="LOG_FILE_PATH" value="${LOG_PATH:-./logs}"/>
+    <property name="APP_NAME" value="${spring.application.name:-backend-template}"/>
+    <property name="FILE_LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"/>
+    <property name="CONSOLE_LOG_PATTERN"
+              value="%green(%d{yyyy-MM-dd HH:mm:ss.SSS}) %magenta([%thread]) %clr(%-5level) %cyan(%logger{36}) - %msg%n"/>
+
+    <!-- ELK Stack 설정 (elk 프로필 사용 시) -->
+    <property name="ELASTICSEARCH_HOST" value="${ELASTICSEARCH_HOST:-localhost}"/>
+    <property name="ELASTICSEARCH_PORT" value="${ELASTICSEARCH_PORT:-9200}"/>
+    <property name="LOGSTASH_HOST" value="${LOGSTASH_HOST:-localhost}"/>
+    <property name="LOGSTASH_PORT" value="${LOGSTASH_PORT:-5000}"/>
+
+    <!-- 콘솔 Appender (마스킹 적용) -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+            <layout class="app.backend.core.log.MaskingPatternLayout">
+                <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+            </layout>
+        </encoder>
+    </appender>
+
+    <!-- 파일 Appender (전체 로그, 마스킹 적용) -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_FILE_PATH}/application.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_FILE_PATH}/application.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+            <layout class="app.backend.core.log.MaskingPatternLayout">
+                <pattern>${FILE_LOG_PATTERN}</pattern>
+            </layout>
+        </encoder>
+    </appender>
+
+    <!-- 에러 전용 Appender (마스킹 적용) -->
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_FILE_PATH}/error.log</file>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>ERROR</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_FILE_PATH}/error.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>90</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+            <layout class="app.backend.core.log.MaskingPatternLayout">
+                <pattern>${FILE_LOG_PATTERN}</pattern>
+            </layout>
+        </encoder>
+    </appender>
+
+    <!-- ========== ELK Stack Appenders ========== -->
+
+    <!-- JSON 파일 Appender (Filebeat 수집용) -->
+    <appender name="JSON_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_FILE_PATH}/application-json.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_FILE_PATH}/application-json.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>3GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <customFields>{"app":"${APP_NAME}","env":"${SPRING_PROFILES_ACTIVE:-local}"}</customFields>
+            <!-- MDC 필드 포함 -->
+            <includeMdcKeyName>traceId</includeMdcKeyName>
+            <includeMdcKeyName>spanId</includeMdcKeyName>
+            <includeMdcKeyName>userId</includeMdcKeyName>
+            <includeMdcKeyName>requestId</includeMdcKeyName>
+            <includeMdcKeyName>requestUri</includeMdcKeyName>
+            <includeMdcKeyName>requestMethod</includeMdcKeyName>
+            <includeMdcKeyName>requestStatus</includeMdcKeyName>
+            <includeMdcKeyName>responseTimeMs</includeMdcKeyName>
+            <includeMdcKeyName>clientIp</includeMdcKeyName>
+            <includeMdcKeyName>errorMessage</includeMdcKeyName>
+            <includeMdcKeyName>errorClass</includeMdcKeyName>
+            <includeMdcKeyName>errorStatus</includeMdcKeyName>
+            <includeMdcKeyName>errorCode</includeMdcKeyName>
+            <includeMdcKeyName>bizErrorCode</includeMdcKeyName>
+        </encoder>
+    </appender>
+
+    <!-- Logstash TCP Appender (직접 전송) -->
+    <appender name="LOGSTASH_TCP" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+        <destination>${LOGSTASH_HOST}:${LOGSTASH_PORT}</destination>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <customFields>{"app":"${APP_NAME}","env":"${SPRING_PROFILES_ACTIVE:-local}"}</customFields>
+        </encoder>
+        <!-- 연결 실패 시 재시도 -->
+        <reconnectionDelay>10 seconds</reconnectionDelay>
+        <!-- 비동기 처리 -->
+        <keepAliveDuration>5 minutes</keepAliveDuration>
+        <!-- 큐 크기 -->
+        <queueSize>512</queueSize>
+    </appender>
+
+    <!-- 비동기 Logstash Appender (성능 향상) -->
+    <appender name="ASYNC_LOGSTASH" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="LOGSTASH_TCP"/>
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <neverBlock>false</neverBlock>
+    </appender>
+
+    <!-- 에러 전용 JSON 파일 -->
+    <appender name="ERROR_JSON_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_FILE_PATH}/error-json.log</file>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>ERROR</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_FILE_PATH}/error-json.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>90</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <customFields>{"app":"${APP_NAME}","env":"${SPRING_PROFILES_ACTIVE:-local}","level":"ERROR"}</customFields>
+            <!-- MDC 필드 포함 (에러 전용) -->
+            <includeMdcKeyName>traceId</includeMdcKeyName>
+            <includeMdcKeyName>userId</includeMdcKeyName>
+            <includeMdcKeyName>requestId</includeMdcKeyName>
+            <includeMdcKeyName>requestUri</includeMdcKeyName>
+            <includeMdcKeyName>requestMethod</includeMdcKeyName>
+            <includeMdcKeyName>requestStatus</includeMdcKeyName>
+            <includeMdcKeyName>responseTimeMs</includeMdcKeyName>
+            <includeMdcKeyName>clientIp</includeMdcKeyName>
+            <includeMdcKeyName>errorMessage</includeMdcKeyName>
+            <includeMdcKeyName>errorClass</includeMdcKeyName>
+            <includeMdcKeyName>errorStatus</includeMdcKeyName>
+            <includeMdcKeyName>errorCode</includeMdcKeyName>
+            <includeMdcKeyName>bizErrorCode</includeMdcKeyName>
+        </encoder>
+    </appender>
+
+    <!-- Elasticsearch 직접 전송 Appender (Logstash 없이) -->
+    <appender name="ELASTIC" class="com.internetitem.logback.elasticsearch.ElasticsearchAppender">
+        <url>http://${ELASTICSEARCH_HOST}:${ELASTICSEARCH_PORT}/_bulk</url>
+        <index>backend-logs-%date{yyyy.MM.dd}</index>
+        <type>_doc</type>
+        <loggerName>es-logger</loggerName>
+        <errorLoggerName>es-error-logger</errorLoggerName>
+
+        <!-- 성능 설정 -->
+        <connectTimeout>30000</connectTimeout>
+        <readTimeout>30000</readTimeout>
+        <maxQueueSize>104857600</maxQueueSize>
+        <maxRetries>3</maxRetries>
+        <sleepTime>250</sleepTime>
+
+        <!-- MDC 포함 -->
+        <includeMdc>true</includeMdc>
+
+        <!-- 커스텀 필드 추가 -->
+        <properties>
+            <property>
+                <name>app</name>
+                <value>${APP_NAME}</value>
+            </property>
+            <property>
+                <name>env</name>
+                <value>${SPRING_PROFILES_ACTIVE:-local}</value>
+            </property>
+        </properties>
+
+        <!-- 에러 처리 -->
+        <errorsToStderr>false</errorsToStderr>
+        <logsToStderr>false</logsToStderr>
+        <includeCallerData>false</includeCallerData>
+    </appender>
+
+    <!-- 비동기 Elasticsearch Appender -->
+    <appender name="ASYNC_ELASTIC" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="ELASTIC"/>
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <neverBlock>false</neverBlock>
+    </appender>
+
+    <!-- ========== Profile별 설정 ========== -->
+
+    <!-- Local 환경: 콘솔만 사용 -->
+    <springProfile name="local">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+        <logger name="app.backend" level="DEBUG"/>
+        <logger name="org.springframework.web" level="DEBUG"/>
+        <logger name="org.hibernate.SQL" level="DEBUG"/>
+        <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="TRACE"/>
+    </springProfile>
+
+    <!-- Dev 환경: 콘솔 + 파일 -->
+    <springProfile name="dev">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="FILE"/>
+            <appender-ref ref="ERROR_FILE"/>
+        </root>
+        <logger name="app.backend" level="INFO"/>
+        <logger name="org.springframework.web" level="INFO"/>
+        <logger name="org.hibernate.SQL" level="INFO"/>
+    </springProfile>
+
+    <!-- Prod 환경: 파일만 사용 (콘솔 최소화) -->
+    <springProfile name="prod">
+        <root level="WARN">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="FILE"/>
+            <appender-ref ref="ERROR_FILE"/>
+        </root>
+        <logger name="app.backend" level="INFO"/>
+        <logger name="org.springframework.web" level="WARN"/>
+        <logger name="org.hibernate.SQL" level="WARN"/>
+        <!-- P6Spy 비활성화 -->
+        <logger name="p6spy" level="OFF"/>
+    </springProfile>
+
+    <!-- ELK 환경: JSON 로깅 + Logstash 전송 활성화 -->
+    <!-- 사용법: SPRING_PROFILES_ACTIVE=prod,elk 또는 dev,elk -->
+    <springProfile name="elk">
+        <root level="INFO">
+            <appender-ref ref="JSON_FILE"/>
+            <appender-ref ref="ERROR_JSON_FILE"/>
+            <appender-ref ref="ASYNC_LOGSTASH"/>
+        </root>
+        <logger name="app.backend" level="DEBUG"/>
+        <logger name="org.springframework.web" level="INFO"/>
+    </springProfile>
+
+    <!-- Elasticsearch 직접 전송 환경 (Logstash 없이) -->
+    <!-- 사용법: SPRING_PROFILES_ACTIVE=prod,elasticsearch 또는 dev,elasticsearch -->
+    <springProfile name="elasticsearch">
+        <root level="INFO">
+            <appender-ref ref="ASYNC_ELASTIC"/>
+        </root>
+        <logger name="app.backend" level="DEBUG"/>
+        <logger name="org.springframework.web" level="INFO"/>
+    </springProfile>
+
+</configuration>

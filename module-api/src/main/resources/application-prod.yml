@@ -1,0 +1,108 @@
+# 운영 서버 환경 설정
+# 환경변수 또는 Jasypt 암호화 방식 모두 지원
+# 운영 환경에서는 반드시 환경변수 또는 암호화 사용 필수!
+spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    # Jasypt 사용 시: password: ENC(암호화된값)
+    hikari:
+      maximum-pool-size: 50
+      minimum-idle: 10
+      connection-timeout: 30000
+      validation-timeout: 5000
+      max-lifetime: 1800000
+      idle-timeout: 600000
+      connection-test-query: SELECT 1
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: none  # 운영은 절대 스키마 변경 안함
+    properties:
+      hibernate:
+        format_sql: false
+        show_sql: false
+        default_batch_fetch_size: 100
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+    show-sql: false
+
+  # Flyway 설정 (운영)
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+    locations: classpath:db/migration
+    validate-on-migrate: true
+    clean-disabled: true
+    out-of-order: false
+
+  error:
+    response:
+      include-stack-trace: false
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+      # Jasypt 사용 시: password: ENC(암호화된값)
+      timeout: 3000
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:false}
+
+  cache:
+    type: redis
+    redis:
+      time-to-live: 3600000
+
+# P6Spy 비활성화 (운영 환경)
+decorator:
+  datasource:
+    p6spy:
+      enable-logging: false
+
+# Swagger 비활성화 (운영 환경)
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+# 로그 설정은 logback-spring.xml에서 관리
+
+# Actuator 설정 (운영)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,prometheus"  # 최소한만 노출
+  endpoint:
+    health:
+      show-details: never
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# 보안 설정
+server:
+  error:
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
+
+# Security 공개 URI 설정 (운영은 최소화)
+security:
+  public-uris:
+    /api/health
+
+# CORS 설정 (운영)
+cors:
+  allowed-origin:
+    ${CORS_ALLOWED_ORIGIN}

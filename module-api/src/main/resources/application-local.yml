@@ -1,0 +1,95 @@
+# 로컬 개발 환경 설정 (Docker)
+# 환경변수 또는 Jasypt 암호화 방식 모두 지원
+spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/template_db
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    # Jasypt 사용 시: password: ENC(암호화된값)
+    hikari:
+      maximum-pool-size: 5
+      connection-timeout: 5000
+      validation-timeout: 3000
+      max-lifetime: 240000
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update  # 로컬은 자동 스키마 업데이트
+    properties:
+      hibernate:
+        format_sql: true
+        show_sql: true
+        default_batch_fetch_size: 100
+        highlight_sql: true
+    show-sql: true
+
+  # Flyway 설정 (로컬)
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+    validate-on-migrate: true
+
+  error:
+    response:
+      include-stack-trace: true  # 로컬은 스택트레이스 포함
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      # Jasypt 사용 시: password: ENC(암호화된값)
+      timeout: 3000
+
+  cache:
+    type: redis
+    redis:
+      time-to-live: 3600000
+
+# P6Spy 설정 (SQL 로깅)
+decorator:
+  datasource:
+    p6spy:
+      enable-logging: true
+      multiline: true
+      logging: slf4j
+      tracing:
+        include-parameter-values: true
+
+# Swagger 활성화
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+# 로그 설정은 logback-spring.xml에서 관리
+
+# Actuator 설정
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"  # 로컬은 모든 엔드포인트 노출
+  endpoint:
+    health:
+      show-details: always
+
+# Security 공개 URI 설정
+security:
+  public-uris:
+    /api/health
+    , /api/env
+    , /v3/api-docs/**
+    , /swagger-ui/**
+    , /swagger-ui.html
+    , /api/v1/samples/hello
+
+# CORS 설정
+cors:
+  allowed-origin:
+    http://localhost:3000
+    , http://localhost:8080

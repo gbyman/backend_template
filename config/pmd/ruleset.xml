@@ -1,0 +1,253 @@
+<?xml version="1.0"?>
+<ruleset name="Custom PMD Ruleset"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+
+    <description>
+        커스텀 PMD 규칙 세트 (PMD 7.0 호환)
+        Spring Boot + Lombok 프로젝트에 최적화
+    </description>
+
+    <!-- 1. Best Practices -->
+    <rule ref="category/java/bestpractices.xml">
+        <!-- JUnit 테스트 관련 -->
+        <exclude name="JUnitTestsShouldIncludeAssert"/>
+        <exclude name="JUnitAssertionsShouldIncludeMessage"/>
+        <exclude name="JUnitTestContainsTooManyAsserts"/>
+        <exclude name="JUnit4TestShouldUseTestAnnotation"/>
+
+        <!-- 파라미터 재할당은 허용 (빌더 패턴에서 필요) -->
+        <exclude name="AvoidReassigningParameters"/>
+
+        <!-- SLF4J 파라미터 치환으로 가드 불필요 -->
+        <exclude name="GuardLogStatement"/>
+
+        <!-- System.out은 유틸리티/CLI에서 허용 -->
+        <exclude name="SystemPrintln"/>
+
+        <!-- Spring DI는 구체 타입 주입이 일반적 (PMD 7: bestpractices로 이동) -->
+        <exclude name="LooseCoupling"/>
+
+        <!-- Spring 추상 컨트롤러/서비스 패턴 허용 (PMD 7: bestpractices로 이동) -->
+        <exclude name="AbstractClassWithoutAbstractMethod"/>
+
+        <!-- Spring 메서드 시그니처 패턴 -->
+        <exclude name="UseVarargs"/>
+
+        <!-- Spring 예외 래핑 패턴 -->
+        <exclude name="PreserveStackTrace"/>
+
+        <!-- 비교 순서는 코드 스타일 선호도 -->
+        <exclude name="LiteralsFirstInComparisons"/>
+
+        <!-- localhost IP 상수 허용 (IpUtils 등) -->
+        <exclude name="AvoidUsingHardCodedIP"/>
+    </rule>
+
+    <!-- 2. Code Style -->
+    <rule ref="category/java/codestyle.xml">
+        <!-- 짧은/긴 변수명 허용 -->
+        <exclude name="ShortVariable"/>
+        <exclude name="LongVariable"/>
+
+        <!-- 로컬 변수 final 강제 안함 -->
+        <exclude name="LocalVariableCouldBeFinal"/>
+        <exclude name="MethodArgumentCouldBeFinal"/>
+
+        <!-- 기본 생성자 주석 불필요 -->
+        <exclude name="CommentDefaultAccessModifier"/>
+
+        <!-- 다중 return 허용 -->
+        <exclude name="OnlyOneReturn"/>
+
+        <!-- 필드 선언 순서는 자유롭게 -->
+        <exclude name="FieldDeclarationsShouldBeAtStartOfClass"/>
+
+        <!-- Lombok 사용으로 생성자 불필요 -->
+        <exclude name="AtLeastOneConstructor"/>
+        <exclude name="CallSuperInConstructor"/>
+
+        <!-- Java var 사용 허용 -->
+        <exclude name="UseExplicitTypes"/>
+
+        <!-- Lombok/Spring DI 필드 네이밍은 프레임워크 관례를 따름 -->
+        <exclude name="FieldNamingConventions"/>
+
+        <!-- Q-class 필드, 테스트 메서드명 false positive -->
+        <exclude name="LinguisticNaming"/>
+
+        <!-- 테스트에서 static import 다수 사용 (Mockito, MockMvc 등) -->
+        <exclude name="TooManyStaticImports"/>
+
+        <!-- 테스트 메서드 BDD 네이밍 (underscore 사용) 허용 -->
+        <exclude name="MethodNamingConventions"/>
+
+        <!-- @Value 등에서 value= 명시는 프레임워크 관례 -->
+        <exclude name="UnnecessaryAnnotationValueElement"/>
+
+        <!-- 삼항 연산자 스타일 선호도 -->
+        <exclude name="ConfusingTernary"/>
+
+        <!-- 디버깅 편의를 위해 로컬 변수 사용 허용 -->
+        <exclude name="UnnecessaryLocalBeforeReturn"/>
+    </rule>
+
+    <!-- 클래스명 길이 제한 -->
+    <rule ref="category/java/codestyle.xml/ShortClassName">
+        <properties>
+            <property name="minimum" value="3"/>
+        </properties>
+    </rule>
+
+    <!-- 메서드명 길이 제한 -->
+    <rule ref="category/java/codestyle.xml/ShortMethodName">
+        <properties>
+            <property name="minimum" value="2"/>
+        </properties>
+    </rule>
+
+    <!-- 3. Design (설계) -->
+    <rule ref="category/java/design.xml">
+        <!-- 복잡도 규칙은 Checkstyle에서 관리 -->
+        <exclude name="CyclomaticComplexity"/>
+        <exclude name="NPathComplexity"/>
+        <exclude name="CognitiveComplexity"/>
+        <exclude name="ExcessiveImports"/>
+
+        <!-- 데이터 클래스 허용 -->
+        <exclude name="DataClass"/>
+
+        <!-- Law of Demeter는 너무 엄격 -->
+        <exclude name="LawOfDemeter"/>
+
+        <!-- Lombok 사용으로 불필요 -->
+        <exclude name="UseUtilityClass"/>
+
+        <!-- Spring 추상 컨트롤러/서비스 패턴 허용 -->
+        <exclude name="AbstractClassWithoutAnyMethod"/>
+
+        <!-- Spring 서비스는 의존성이 많을 수 있음 -->
+        <exclude name="CouplingBetweenObjects"/>
+
+        <!-- 아래에서 커스텀 속성으로 재정의 -->
+        <exclude name="TooManyMethods"/>
+        <exclude name="TooManyFields"/>
+
+        <!-- Lombok @RequiredArgsConstructor DI 필드는 static 불가 -->
+        <exclude name="FinalFieldCouldBeStatic"/>
+
+        <!-- Spring/JPA 관리 필드는 immutable 불가 -->
+        <exclude name="ImmutableField"/>
+
+        <!-- GlobalExceptionHandler 등에서 Exception catch 필요 (PMD 7: design으로 이동) -->
+        <exclude name="AvoidCatchingGenericException"/>
+
+        <!-- BizException은 RuntimeException을 의도적으로 확장 (PMD 7: design으로 이동) -->
+        <exclude name="AvoidThrowingRawExceptionTypes"/>
+
+        <!-- Spring Security filterChain은 throws Exception 필수 -->
+        <exclude name="SignatureDeclareThrowsException"/>
+
+        <!-- Spring 계약 메서드 (UsernameNotFoundException 등) -->
+        <exclude name="AvoidUncheckedExceptionsInSignatures"/>
+
+        <!-- 가독성 선호도 (명시적 if/else가 더 읽기 쉬울 때) -->
+        <exclude name="SimplifyBooleanReturns"/>
+
+        <!-- 유틸리티 헬퍼 클래스는 메서드가 많을 수 있음 -->
+        <exclude name="GodClass"/>
+
+        <!-- VO/유틸리티 메서드 파라미터 패턴 허용 -->
+        <exclude name="UseObjectForClearerAPI"/>
+
+        <!-- Checkstyle에서 관리 (NestedIfDepth) -->
+        <exclude name="AvoidDeeplyNestedIfStmts"/>
+        <exclude name="CollapsibleIfStatements"/>
+    </rule>
+
+    <!-- 너무 많은 메서드 제한 -->
+    <rule ref="category/java/design.xml/TooManyMethods">
+        <properties>
+            <property name="maxmethods" value="30"/>
+        </properties>
+    </rule>
+
+    <!-- 너무 많은 필드 제한 -->
+    <rule ref="category/java/design.xml/TooManyFields">
+        <properties>
+            <property name="maxfields" value="15"/>
+        </properties>
+    </rule>
+
+    <!-- 4. Error Prone (잠재적 버그) -->
+    <rule ref="category/java/errorprone.xml">
+        <!-- Null 체크는 Optional로 대체 -->
+        <exclude name="NullAssignment"/>
+
+        <!-- Serializable UID는 SpotBugs에서 관리 -->
+        <exclude name="MissingSerialVersionUID"/>
+
+        <!-- SpotBugs에서 관리 -->
+        <exclude name="NonSerializableClass"/>
+
+        <!-- 내부 비교에서 Locale 불필요 -->
+        <exclude name="UseLocaleWithCaseConversions"/>
+
+        <!-- if 조건에 리터럴 허용 (PMD 7: errorprone으로 이동) -->
+        <exclude name="AvoidLiteralsInIfCondition"/>
+
+        <!-- 문자열 중복은 템플릿 코드에서 너무 엄격 -->
+        <exclude name="AvoidDuplicateLiterals"/>
+
+        <!-- 테스트에서 리플렉션 허용 -->
+        <exclude name="AvoidAccessibilityAlteration"/>
+
+        <!-- 테스트 지원 클래스 (TestFixtures, TestConfig 등) -->
+        <exclude name="TestClassWithoutTestCases"/>
+
+        <!-- Java IO 패턴에서 사용 (while ((line = reader.readLine()) != null)) -->
+        <exclude name="AssignmentInOperand"/>
+
+        <!-- Spring이 리소스 관리 -->
+        <exclude name="CloseResource"/>
+
+        <!-- 의도적으로 무시하는 예외 (주석으로 설명) -->
+        <exclude name="EmptyCatchBlock"/>
+    </rule>
+
+    <!-- 5. Multithreading -->
+    <rule ref="category/java/multithreading.xml">
+        <!-- Spring에서 관리하므로 제외 -->
+        <exclude name="UseConcurrentHashMap"/>
+    </rule>
+
+    <!-- 6. Performance -->
+    <rule ref="category/java/performance.xml">
+        <!-- 최신 JVM은 최적화하므로 제외 -->
+        <exclude name="AvoidInstantiatingObjectsInLoops"/>
+
+        <!-- String concatenation은 컴파일러가 최적화 -->
+        <exclude name="ConsecutiveLiteralAppends"/>
+
+        <!-- 미세 최적화 규칙 제외 -->
+        <exclude name="InefficientEmptyStringCheck"/>
+        <exclude name="UseIndexOfChar"/>
+        <exclude name="AppendCharacterWithChar"/>
+    </rule>
+
+    <!-- 7. Security -->
+    <rule ref="category/java/security.xml">
+        <!-- 템플릿 샘플 코드의 기본 키 (실제 운영 시 반드시 교체) -->
+        <exclude name="HardCodedCryptoKey"/>
+    </rule>
+
+    <!-- 8. Documentation (Javadoc은 Checkstyle에서 관리, PMD에서는 비활성화) -->
+    <rule ref="category/java/documentation.xml">
+        <exclude name="CommentRequired"/>
+        <exclude name="CommentSize"/>
+        <exclude name="UncommentedEmptyConstructor"/>
+        <exclude name="UncommentedEmptyMethodBody"/>
+    </rule>
+
+</ruleset>

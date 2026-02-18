@@ -1,0 +1,227 @@
+stages:
+  - build
+  - test
+  - docker
+  - deploy
+
+variables:
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+  GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
+  API_IMAGE: "${CI_REGISTRY_IMAGE}/api"
+  BATCH_IMAGE: "${CI_REGISTRY_IMAGE}/batch"
+
+# Gradle 캐시 설정
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - .gradle/wrapper
+    - .gradle/caches
+
+# ============================================
+# 빌드 단계
+# ============================================
+build:
+  stage: build
+  image: gradle:8.13-jdk21
+  script:
+    - chmod +x gradlew
+    - ./gradlew clean build -x test
+  artifacts:
+    paths:
+      - module-api/build/libs/*.jar
+      - module-batch/build/libs/*.jar
+    expire_in: 1 hour
+  only:
+    - main
+    - develop
+    - merge_requests
+
+# ============================================
+# 테스트 단계
+# ============================================
+test:
+  stage: test
+  image: gradle:8.13-jdk21
+  script:
+    - ./gradlew test
+  artifacts:
+    reports:
+      junit:
+        - module-api/build/test-results/test/TEST-*.xml
+        - module-batch/build/test-results/test/TEST-*.xml
+    paths:
+      - module-api/build/reports/
+      - module-batch/build/reports/
+  only:
+    - main
+    - develop
+    - merge_requests
+
+# ============================================
+# Docker 이미지 빌드 & Push
+# ============================================
+docker:api:
+  stage: docker
+  image: docker:latest
+  services:
+    - docker:dind
+  before_script:
+    - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
+  script:
+    - docker build -f module-api/Dockerfile -t ${API_IMAGE}:${CI_COMMIT_SHA} -t ${API_IMAGE}:latest .
+    - docker push ${API_IMAGE}:${CI_COMMIT_SHA}
+    - docker push ${API_IMAGE}:latest
+  only:
+    - main
+    - develop
+
+docker:batch:
+  stage: docker
+  image: docker:latest
+  services:
+    - docker:dind
+  before_script:
+    - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
+  script:
+    - docker build -f module-batch/Dockerfile -t ${BATCH_IMAGE}:${CI_COMMIT_SHA} -t ${BATCH_IMAGE}:latest .
+    - docker push ${BATCH_IMAGE}:${CI_COMMIT_SHA}
+    - docker push ${BATCH_IMAGE}:latest
+  only:
+    - main
+    - develop
+
+# ============================================
+# 개발 환경 배포
+# ============================================
+deploy:dev:api:
+  stage: deploy
+  image: docker:latest
+  services:
+    - docker:dind
+  environment:
+    name: development
+    url: https://dev-api.example.com
+  script:
+    - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
+    - docker pull ${API_IMAGE}:${CI_COMMIT_SHA}
+    - docker stop backend-api-dev || true
+    - docker rm backend-api-dev || true
+    - |
+      docker run -d \
+        --name backend-api-dev \
+        --restart unless-stopped \
+        -e SPRING_PROFILES_ACTIVE=dev \
+        -e DB_URL=${DEV_DB_URL} \
+        -e DB_USERNAME=${DEV_DB_USERNAME} \
+        -e DB_PASSWORD=${DEV_DB_PASSWORD} \
+        -e REDIS_HOST=${DEV_REDIS_HOST} \
+        -e REDIS_PORT=${DEV_REDIS_PORT:-6379} \
+        -e REDIS_PASSWORD=${DEV_REDIS_PASSWORD} \
+        -e JWT_SECRET=${DEV_JWT_SECRET} \
+        -e JASYPT_ENCRYPTOR_PASSWORD=${DEV_JASYPT_PASSWORD} \
+        -e CORS_ALLOWED_ORIGIN=${DEV_CORS_ORIGIN} \
+        -v /app/logs/api:/app/logs \
+        -v /app/uploads:/app/uploads \
+        -p 8080:8080 \
+        ${API_IMAGE}:${CI_COMMIT_SHA}
+  only:
+    - develop
+
+deploy:dev:batch:
+  stage: deploy
+  image: docker:latest
+  services:
+    - docker:dind
+  environment:
+    name: development
+  script:
+    - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
+    - docker pull ${BATCH_IMAGE}:${CI_COMMIT_SHA}
+    - docker stop backend-batch-dev || true
+    - docker rm backend-batch-dev || true
+    - |
+      docker run -d \
+        --name backend-batch-dev \
+        --restart unless-stopped \
+        -e SPRING_PROFILES_ACTIVE=dev \
+        -e DB_URL=${DEV_DB_URL} \
+        -e DB_USERNAME=${DEV_DB_USERNAME} \
+        -e DB_PASSWORD=${DEV_DB_PASSWORD} \
+        -e REDIS_HOST=${DEV_REDIS_HOST} \
+        -e REDIS_PORT=${DEV_REDIS_PORT:-6379} \
+        -e REDIS_PASSWORD=${DEV_REDIS_PASSWORD} \
+        -e JASYPT_ENCRYPTOR_PASSWORD=${DEV_JASYPT_PASSWORD} \
+        -v /app/logs/batch:/app/logs \
+        -p 8090:8090 \
+        ${BATCH_IMAGE}:${CI_COMMIT_SHA}
+  only:
+    - develop
+
+# ============================================
+# 운영 환경 배포
+# ============================================
+deploy:prod:api:
+  stage: deploy
+  image: docker:latest
+  services:
+    - docker:dind
+  environment:
+    name: production
+    url: https://api.example.com
+  script:
+    - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
+    - docker pull ${API_IMAGE}:${CI_COMMIT_SHA}
+    - docker stop backend-api || true
+    - docker rm backend-api || true
+    - |
+      docker run -d \
+        --name backend-api \
+        --restart unless-stopped \
+        -e SPRING_PROFILES_ACTIVE=prod \
+        -e DB_URL=${PROD_DB_URL} \
+        -e DB_USERNAME=${PROD_DB_USERNAME} \
+        -e DB_PASSWORD=${PROD_DB_PASSWORD} \
+        -e REDIS_HOST=${PROD_REDIS_HOST} \
+        -e REDIS_PORT=${PROD_REDIS_PORT:-6379} \
+        -e REDIS_PASSWORD=${PROD_REDIS_PASSWORD} \
+        -e JWT_SECRET=${PROD_JWT_SECRET} \
+        -e JASYPT_ENCRYPTOR_PASSWORD=${PROD_JASYPT_PASSWORD} \
+        -e CORS_ALLOWED_ORIGIN=${PROD_CORS_ORIGIN} \
+        -v /app/logs/api:/app/logs \
+        -v /app/uploads:/app/uploads \
+        -p 8080:8080 \
+        ${API_IMAGE}:${CI_COMMIT_SHA}
+  only:
+    - main
+  when: manual  # 수동 승인 필요
+
+deploy:prod:batch:
+  stage: deploy
+  image: docker:latest
+  services:
+    - docker:dind
+  environment:
+    name: production
+  script:
+    - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
+    - docker pull ${BATCH_IMAGE}:${CI_COMMIT_SHA}
+    - docker stop backend-batch || true
+    - docker rm backend-batch || true
+    - |
+      docker run -d \
+        --name backend-batch \
+        --restart unless-stopped \
+        -e SPRING_PROFILES_ACTIVE=prod \
+        -e DB_URL=${PROD_DB_URL} \
+        -e DB_USERNAME=${PROD_DB_USERNAME} \
+        -e DB_PASSWORD=${PROD_DB_PASSWORD} \
+        -e REDIS_HOST=${PROD_REDIS_HOST} \
+        -e REDIS_PORT=${PROD_REDIS_PORT:-6379} \
+        -e REDIS_PASSWORD=${PROD_REDIS_PASSWORD} \
+        -e JASYPT_ENCRYPTOR_PASSWORD=${PROD_JASYPT_PASSWORD} \
+        -v /app/logs/batch:/app/logs \
+        -p 8090:8090 \
+        ${BATCH_IMAGE}:${CI_COMMIT_SHA}
+  only:
+    - main
+  when: manual  # 수동 승인 필요

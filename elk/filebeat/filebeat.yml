@@ -1,0 +1,47 @@
+filebeat.inputs:
+  # JSON 로그 파일 수집
+  - type: log
+    enabled: true
+    paths:
+      - /logs/application-json.log
+    json.keys_under_root: true
+    json.add_error_key: true
+    fields:
+      type: json-log
+      app: backend-template
+
+  # 에러 로그 파일 수집
+  - type: log
+    enabled: true
+    paths:
+      - /logs/error-json.log
+    json.keys_under_root: true
+    json.add_error_key: true
+    fields:
+      type: error-log
+      app: backend-template
+      severity: error
+
+# Logstash 출력
+output.logstash:
+  hosts: ["logstash:5044"]
+
+# Elasticsearch 직접 출력 (Logstash 없이)
+# output.elasticsearch:
+#   hosts: ["elasticsearch:9200"]
+#   index: "backend-logs-%{+yyyy.MM.dd}"
+
+# 프로세서 설정
+processors:
+  - add_host_metadata: ~
+  - add_cloud_metadata: ~
+  - add_docker_metadata: ~
+
+# 로깅 설정
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7
+  permissions: 0644

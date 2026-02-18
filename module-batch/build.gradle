@@ -1,0 +1,25 @@
+// WAR 플러그인 및 bootJar/bootWar 설정은 루트 build.gradle에서 통합 관리됨
+
+dependencies {
+	// module-common (api scope로 다음 의존성이 전이됩니다:
+	//   web, security, validation, data-jpa, data-redis, querydsl-jpa,
+	//   aop, p6spy, postgresql, springdoc, commons-lang3, jsoup 등)
+	implementation project(':module-common')
+
+	// Actuator (헬스체크, 메트릭)
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+	// Spring Batch
+	implementation 'org.springframework.boot:spring-boot-starter-batch'
+
+	// Quartz Scheduler (클러스터링 지원)
+	implementation 'org.springframework.boot:spring-boot-starter-quartz'
+
+	// ShedLock - 분산 락 (이중화 환경 중복 실행 방지)
+	implementation "net.javacrumbs.shedlock:shedlock-spring:${shedlockVersion}"
+	implementation "net.javacrumbs.shedlock:shedlock-provider-jdbc-template:${shedlockVersion}"
+
+	// Test (spring-boot-starter-test, lombok, junit-platform은 root subprojects에서 전이)
+	testImplementation 'org.springframework.batch:spring-batch-test'
+}
+

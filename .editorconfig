@@ -1,0 +1,59 @@
+# EditorConfig - 에디터 간 코드 스타일 통일
+# https://editorconfig.org
+
+root = true
+
+# 모든 파일 기본 설정
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Java 파일
+[*.java]
+indent_style = space
+indent_size = 4
+max_line_length = 120
+continuation_indent_size = 8
+
+# YAML 파일
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# Gradle 파일
+[*.gradle]
+indent_style = space
+indent_size = 4
+
+# Markdown 파일 (trailing spaces 허용)
+[*.md]
+trim_trailing_whitespace = false
+max_line_length = off
+
+# XML 파일
+[*.xml]
+indent_style = space
+indent_size = 4
+
+# JSON 파일
+[*.json]
+indent_style = space
+indent_size = 2
+
+# Shell 스크립트
+[*.sh]
+indent_style = space
+indent_size = 2
+end_of_line = lf
+
+# SQL 파일
+[*.sql]
+indent_style = space
+indent_size = 2
+
+# Properties 파일
+[*.properties]
+indent_style = space
+indent_size = 4

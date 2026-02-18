@@ -1,0 +1,71 @@
+#!/bin/bash
+
+# Commit 메시지 검증 스크립트
+# Conventional Commits 형식 강제: <type>: <description>
+#
+# 허용되는 타입:
+# - feat: 새로운 기능
+# - fix: 버그 수정
+# - docs: 문서 변경
+# - style: 코드 포맷팅 (로직 변경 없음)
+# - refactor: 리팩토링
+# - test: 테스트 추가/수정
+# - chore: 빌드, 설정 파일 수정
+# - perf: 성능 개선
+# - ci: CI/CD 설정
+# - revert: 커밋 되돌리기
+
+# 커밋 메시지 파일 경로
+COMMIT_MSG_FILE=$1
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# Conventional Commits 정규식 패턴
+# 형식: <type>(<scope>): <subject>
+# 예시: feat: 사용자 로그인 기능 추가
+#       fix(auth): JWT 토큰 만료 오류 수정
+PATTERN="^(feat|fix|docs|style|refactor|test|chore|perf|ci|revert)(\(.+\))?: .{1,}"
+
+# Merge 커밋은 검증 스킵
+if echo "$COMMIT_MSG" | grep -qE "^Merge"; then
+    exit 0
+fi
+
+# Revert 커밋은 검증 스킵
+if echo "$COMMIT_MSG" | grep -qE "^Revert"; then
+    exit 0
+fi
+
+# 커밋 메시지 검증
+if ! echo "$COMMIT_MSG" | grep -qE "$PATTERN"; then
+    echo ""
+    echo "❌ 커밋 메시지가 Conventional Commits 형식에 맞지 않습니다."
+    echo ""
+    echo "📝 올바른 형식:"
+    echo "   <type>: <description>"
+    echo "   <type>(<scope>): <description>"
+    echo ""
+    echo "✅ 허용되는 타입:"
+    echo "   feat     - 새로운 기능"
+    echo "   fix      - 버그 수정"
+    echo "   docs     - 문서 변경"
+    echo "   style    - 코드 포맷팅"
+    echo "   refactor - 리팩토링"
+    echo "   test     - 테스트 추가/수정"
+    echo "   chore    - 빌드, 설정 파일 수정"
+    echo "   perf     - 성능 개선"
+    echo "   ci       - CI/CD 설정"
+    echo "   revert   - 커밋 되돌리기"
+    echo ""
+    echo "📌 예시:"
+    echo "   feat: 사용자 로그인 기능 추가"
+    echo "   fix(auth): JWT 토큰 만료 오류 수정"
+    echo "   docs: README 업데이트"
+    echo ""
+    echo "💡 현재 메시지:"
+    echo "   $COMMIT_MSG"
+    echo ""
+    exit 1
+fi
+
+echo "✅ 커밋 메시지 검증 통과"
+exit 0

@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter
+        xmlns="https://github.com/spotbugs/filter/3.0.0"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="https://github.com/spotbugs/filter/3.0.0 https://raw.githubusercontent.com/spotbugs/spotbugs/3.1.0/spotbugs/etc/findbugsfilter.xsd">
+
+    <!-- ==========================================================
+         1. 생성된 코드 제외
+         ========================================================== -->
+
+    <!-- QueryDSL Q-class -->
+    <Match>
+        <Class name="~.*\.Q.*"/>
+    </Match>
+
+    <!-- Generated source packages -->
+    <Match>
+        <Package name="~.*\.generated\..*"/>
+    </Match>
+
+    <!-- ==========================================================
+         2. Lombok @Getter/@Setter/@Builder 관련 (EI_EXPOSE_REP)
+
+         Lombok이 생성하는 getter/setter는 가변 객체를 방어적 복사 없이
+         직접 반환합니다. 데이터 운반 객체(Entity, DTO, VO, Properties)는
+         직렬화/역직렬화 및 Spring 바인딩 용도이므로 방어적 복사가 불필요합니다.
+
+         ($.*)?  → Lombok @Builder, 중첩 DTO(예: ReqDto$Create) 등
+                   내부 클래스도 함께 제외합니다.
+         ========================================================== -->
+
+    <Match>
+        <Or>
+            <Class name="~.*Entity(\$.*)?"/>
+            <Class name="~.*(Dto|DTO)(\$.*)?"/>
+            <Class name="~.*Vo(\$.*)?"/>
+            <Class name="~.*Properties(\$.*)?"/>
+        </Or>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- ==========================================================
+         3. Spring DI 생성자 주입 관련 (EI_EXPOSE_REP2)
+
+         @RequiredArgsConstructor로 Spring Bean을 생성자 주입하면
+         "외부 가변 객체를 필드에 직접 저장" 경고가 발생합니다.
+         Spring Bean은 컨테이너가 생명주기를 관리하는 싱글톤이므로
+         방어적 복사가 불필요하며 오히려 프록시가 깨지는 부작용이 있습니다.
+         ========================================================== -->
+
+    <Match>
+        <Or>
+            <Class name="~.*Controller"/>
+            <Class name="~.*Service(\$.*)?"/>
+            <Class name="~.*Config(\$.*)?"/>
+            <Class name="~.*Filter(\$.*)?"/>
+            <Class name="~.*Interceptor(\$.*)?"/>
+            <Class name="~.*Aspect(\$.*)?"/>
+            <Class name="~.*Handler(\$.*)?"/>
+            <Class name="~.*Helper(\$.*)?"/>
+            <Class name="~.*Indicator(\$.*)?"/>
+        </Or>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- ==========================================================
+         4. Spring @Configuration 관련 (UWF_FIELD_NOT_INITIALIZED_IN_CONSTRUCTOR)
+
+         @Configuration 클래스의 필드는 Spring DI가 초기화하므로
+         생성자에서 초기화되지 않았다는 경고는 거짓 양성입니다.
+         ========================================================== -->
+
+    <Match>
+        <Class name="~.*Config(\$.*)?"/>
+        <Bug pattern="UWF_FIELD_NOT_INITIALIZED_IN_CONSTRUCTOR"/>
+    </Match>
+
+    <!-- ==========================================================
+         5. Spring Bean 생성자 예외 (CT_CONSTRUCTOR_THROW)
+
+         Spring Bean은 컨테이너가 인스턴스를 생성·관리하므로
+         Finalizer 공격 대상이 되지 않습니다.
+         TokenProvider 등 @Component 생성자에서 키 검증 시 발생하는 경고입니다.
+         ========================================================== -->
+
+    <Match>
+        <Bug pattern="CT_CONSTRUCTOR_THROW"/>
+    </Match>
+
+    <!-- ==========================================================
+         6. Spring Security UserDetails 관련
+
+         CustomUserDetails가 UserEntity를 필드로 보유합니다.
+         - SE_BAD_FIELD: UserEntity는 Serializable 미구현이나,
+           JWT(stateless) 방식에서 세션 직렬화를 사용하지 않으므로 무관.
+         - EI_EXPOSE_REP/REP2: UserEntity를 직접 저장·반환하지만,
+           인증 컨텍스트 내부에서만 사용되므로 방어적 복사 불필요.
+         ========================================================== -->
+
+    <Match>
+        <Class name="~.*UserDetails(\$.*)?"/>
+        <Bug pattern="SE_BAD_FIELD,EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- ==========================================================
+         7. SecureRandom 일회용 사용 (DMI_RANDOM_USED_ONLY_ONCE)
+
+         EncryptionUtils에서 IV, 키, Salt 생성마다 new SecureRandom()을 사용합니다.
+         java.util.Random은 시드 재사용 문제가 있지만 SecureRandom은
+         OS 엔트로피 풀을 사용하므로 일회성 생성이 오히려 안전합니다.
+         ========================================================== -->
+
+    <Match>
+        <Bug pattern="DMI_RANDOM_USED_ONLY_ONCE"/>
+        <Class name="~.*EncryptionUtils"/>
+    </Match>
+
+    <!-- ==========================================================
+         8. 정규식 검증 패턴 (RE_POSSIBLE_UNINTENDED_PATTERN)
+
+         SafePathValidator의 경로 탐색 방지 정규식은 의도적으로
+         백슬래시(\)와 점(.)을 이스케이프하여 사용합니다.
+         SpotBugs가 File.separator와 혼동하지만 정상 작동합니다.
+         ========================================================== -->
+
+    <Match>
+        <Class name="~.*Validator(\$.*)?"/>
+        <Bug pattern="RE_POSSIBLE_UNINTENDED_PATTERN,RE_CANT_USE_FILE_SEPARATOR_AS_REGULAR_EXPRESSION"/>
+    </Match>
+
+    <!-- ==========================================================
+         9. Spring Validator DI (EI_EXPOSE_REP2)
+
+         JSR-380 ConstraintValidator도 Spring DI로 Bean을 주입받습니다.
+         FileExtensionValidator 등에서 Properties를 생성자 주입합니다.
+         ========================================================== -->
+
+    <Match>
+        <Class name="~.*Validator(\$.*)?"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- ==========================================================
+         10. Spring ApplicationContextAware 패턴 (ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD)
+
+         BeanUtils는 ApplicationContextAware를 구현하여
+         setApplicationContext()에서 static 필드에 컨텍스트를 저장합니다.
+         Spring이 보장하는 싱글톤 초기화이므로 Thread-safe 문제 없습니다.
+         ========================================================== -->
+
+    <Match>
+        <Bug pattern="ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD"/>
+        <Class name="~.*BeanUtils"/>
+    </Match>
+
+    <!-- ==========================================================
+         11. 기타 공통 제외
+         ========================================================== -->
+
+    <!-- Test 클래스 제외 -->
+    <Match>
+        <Class name="~.*Test(\$.*)?"/>
+    </Match>
+
+    <!-- Lombok @Data, @Builder 사용으로 발생하는 equals 경고 무시 -->
+    <Match>
+        <Bug pattern="EQ_DOESNT_OVERRIDE_EQUALS"/>
+    </Match>
+
+    <!--
+         Controller/Actuator/Helper 반환값 null 경고
+         Spring이 DI 초기화를 보장하므로 getConnectionFactory() 등은
+         null을 반환하지 않습니다.
+    -->
+    <Match>
+        <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
+        <Or>
+            <Class name="~.*Controller"/>
+            <Class name="~.*Indicator(\$.*)?"/>
+            <Class name="~.*Helper(\$.*)?"/>
+        </Or>
+    </Match>
+
+    <!-- ExcelWriter: Workbook을 의도적으로 외부에 노출 (addSheet, write 호출 필요) -->
+    <Match>
+        <Class name="~.*ExcelWriter"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- Application 메인 클래스 -->
+    <Match>
+        <Class name="~.*Application"/>
+        <Method name="main"/>
+    </Match>
+
+    <!-- Serializable 경고 무시 (Spring Data JPA Entity는 불필요) -->
+    <Match>
+        <Bug pattern="SE_NO_SERIALVERSIONID"/>
+    </Match>
+
+</FindBugsFilter>

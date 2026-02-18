@@ -1,0 +1,22 @@
+rootProject.name = 'backend-template'
+
+include 'module-common'
+include 'module-api'
+include 'module-batch'
+
+// Nexus를 사용하는 경우 플러그인도 Nexus에서 가져오기
+if (settings.hasProperty('nexusUrl')) {
+    pluginManagement {
+        repositories {
+            maven {
+                url = settings.property('gradlePluginPortalUrl')
+                credentials {
+                    username = settings.findProperty('nexusUsername') ?: System.getenv('NEXUS_USERNAME')
+                    password = settings.findProperty('nexusPassword') ?: System.getenv('NEXUS_PASSWORD')
+                }
+            }
+            // Fallback: Gradle Plugin Portal
+            gradlePluginPortal()
+        }
+    }
+}

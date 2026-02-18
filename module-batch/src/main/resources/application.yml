@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: backend_template_batch
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
+  # Spring Batch 설정
+  batch:
+    job:
+      enabled: false  # 자동 실행 비활성화 (Quartz로 제어)
+    jdbc:
+      initialize-schema: never  # Flyway가 관리
+
+  # Quartz 클러스터링 설정 (서버 이중화 대응)
+  quartz:
+    job-store-type: jdbc  # JDBC 기반 (메모리 아님!)
+    scheduler-name: TemplateQuartzScheduler
+    wait-for-jobs-to-complete-on-shutdown: true
+    overwrite-existing-jobs: true
+    jdbc:
+      initialize-schema: never  # Flyway가 관리
+    properties:
+      # ===== 클러스터링 핵심 설정 =====
+      org:
+        quartz:
+          scheduler:
+            instanceId: AUTO  # 각 서버에 고유 ID 자동 할당
+            instanceName: TemplateQuartzScheduler
+          jobStore:
+            class: org.quartz.impl.jdbcjobstore.JobStoreTX
+            driverDelegateClass: org.quartz.impl.jdbcjobstore.PostgreSQLDelegate
+            useProperties: false
+            tablePrefix: QRTZ_  # Quartz 테이블 prefix
+            # ===== 클러스터링 활성화 =====
+            isClustered: true  # 클러스터 모드 ON
+            clusterCheckinInterval: 10000  # 10초마다 헬스체크 (밀리초)
+            misfireThreshold: 60000  # 1분
+          threadPool:
+            class: org.quartz.simpl.SimpleThreadPool
+            threadCount: 10
+            threadPriority: 5
+            threadsInheritContextClassLoaderOfInitializingThread: true

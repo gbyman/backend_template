@@ -1,0 +1,41 @@
+# ============================================
+# 개발용 Dockerfile
+# ============================================
+# 사용법:
+#   1. 호스트에서 JAR 빌드: ./gradlew :module-api:bootJar -Pprofile=local
+#   2. 컨테이너 실행:
+#      docker build -f Dockerfile.dev -t backend-dev .
+#      docker run -p 8080:8080 \
+#        -v ./module-api/build/libs:/app/libs \
+#        -v ./logs:/app/logs \
+#        -e SPRING_PROFILES_ACTIVE=local \
+#        -e DB_URL=jdbc:postgresql://host.docker.internal:5432/template_db \
+#        backend-dev
+
+FROM eclipse-temurin:21-jdk-alpine
+
+# 타임존 설정
+ENV TZ=Asia/Seoul
+RUN apk add --no-cache tzdata && \
+    cp /usr/share/zoneinfo/${TZ} /etc/localtime && \
+    echo "${TZ}" > /etc/timezone && \
+    apk del tzdata
+
+WORKDIR /app
+
+# 로그 및 업로드 디렉토리
+RUN mkdir -p /app/logs /app/uploads
+
+# 기본 환경변수
+ENV SPRING_PROFILES_ACTIVE=local
+ENV SPRING_DEVTOOLS_REMOTE_SECRET=devtools-secret
+
+EXPOSE 8080
+
+# 호스트에서 빌드된 JAR을 volume mount로 전달
+# docker run -v ./module-api/build/libs:/app/libs
+ENTRYPOINT ["java", \
+    "-XX:+UseG1GC", \
+    "-Dspring.devtools.restart.enabled=true", \
+    "-Djava.security.egd=file:/dev/./urandom", \
+    "-jar", "/app/libs/module-api-0.0.1-SNAPSHOT.jar"]

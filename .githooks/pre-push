@@ -1,0 +1,48 @@
+#!/bin/bash
+
+# Pre-push 훅 스크립트
+# main, prod 브랜치에 직접 push 방지
+
+# 보호할 브랜치 목록
+PROTECTED_BRANCHES=("main" "master" "prod" "production")
+
+# 현재 브랜치명 가져오기
+CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null)
+
+# 브랜치명을 가져올 수 없는 경우 (detached HEAD 등)
+if [ -z "$CURRENT_BRANCH" ]; then
+    echo "⚠️  현재 브랜치를 확인할 수 없습니다."
+    exit 0
+fi
+
+# 현재 브랜치가 보호 대상인지 확인
+for branch in "${PROTECTED_BRANCHES[@]}"; do
+    if [ "$CURRENT_BRANCH" = "$branch" ]; then
+        echo ""
+        echo "❌ '$CURRENT_BRANCH' 브랜치에 직접 push할 수 없습니다!"
+        echo ""
+        echo "🔒 보호된 브랜치: ${PROTECTED_BRANCHES[*]}"
+        echo ""
+        echo "💡 올바른 작업 흐름:"
+        echo "   1. 기능 브랜치 생성"
+        echo "      git checkout -b feature/your-feature"
+        echo ""
+        echo "   2. 변경사항 커밋"
+        echo "      git add ."
+        echo "      git commit -m \"feat: your feature\""
+        echo ""
+        echo "   3. 기능 브랜치에 push"
+        echo "      git push origin feature/your-feature"
+        echo ""
+        echo "   4. Pull Request 생성"
+        echo "      GitHub/GitLab에서 PR 생성 후 리뷰 진행"
+        echo ""
+        echo "⚠️  긴급한 경우 '--no-verify' 옵션 사용 (권장하지 않음)"
+        echo "   git push --no-verify"
+        echo ""
+        exit 1
+    fi
+done
+
+echo "✅ Push 허용: $CURRENT_BRANCH 브랜치"
+exit 0

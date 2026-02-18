@@ -1,0 +1,37 @@
+-- 데이터베이스 초기화 스크립트
+-- 이 스크립트는 Docker 컨테이너 최초 생성 시 자동 실행됩니다
+
+-- Sample Table
+CREATE TABLE IF NOT EXISTS TB_SAMPLE (
+    SAMPLE_ID BIGSERIAL PRIMARY KEY,
+    TITLE VARCHAR(200) NOT NULL,
+    CONTENT TEXT,
+    USE_YN VARCHAR(1) NOT NULL DEFAULT 'Y',
+    REG_USER_ID VARCHAR(50),
+    REG_DATETIME TIMESTAMP,
+    UPDATER_ID VARCHAR(50),
+    UPDATE_DATETIME TIMESTAMP
+);
+
+COMMENT ON TABLE TB_SAMPLE IS '샘플 테이블';
+COMMENT ON COLUMN TB_SAMPLE.SAMPLE_ID IS '샘플_ID';
+COMMENT ON COLUMN TB_SAMPLE.TITLE IS '제목';
+COMMENT ON COLUMN TB_SAMPLE.CONTENT IS '내용';
+COMMENT ON COLUMN TB_SAMPLE.USE_YN IS '사용_여부';
+COMMENT ON COLUMN TB_SAMPLE.REG_USER_ID IS '등록자_ID';
+COMMENT ON COLUMN TB_SAMPLE.REG_DATETIME IS '등록_일시';
+COMMENT ON COLUMN TB_SAMPLE.UPDATER_ID IS '수정자_ID';
+COMMENT ON COLUMN TB_SAMPLE.UPDATE_DATETIME IS '수정_일시';
+
+-- 개발용 샘플 데이터
+INSERT INTO TB_SAMPLE (TITLE, CONTENT, REG_USER_ID, REG_DATETIME) VALUES
+('로컬 개발 샘플 1', '로컬 환경 테스트 데이터입니다.', 'local_dev', NOW()),
+('로컬 개발 샘플 2', 'Docker로 실행된 PostgreSQL 데이터입니다.', 'local_dev', NOW()),
+('로컬 개발 샘플 3', '로컬에서 자유롭게 테스트하세요!', 'local_dev', NOW());
+
+-- 초기화 완료 로그
+DO $$
+BEGIN
+    RAISE NOTICE '✅ Database initialization completed!';
+    RAISE NOTICE '📊 Sample data inserted: % rows', (SELECT COUNT(*) FROM TB_SAMPLE);
+END $$;

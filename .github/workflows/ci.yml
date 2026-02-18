@@ -1,0 +1,369 @@
+# ============================================
+# GitHub Actions CI/CD Pipeline
+# ============================================
+#
+# 파이프라인: build + test (병렬) → docker → deploy
+#
+# 브랜치 전략:
+#   develop     → dev 환경 배포
+#   release/*   → stg 환경 배포
+#   main        → prod 환경 배포
+#   PR          → build + test만 실행
+#
+# 필수 Secrets (Settings → Secrets and variables → Actions):
+#   REGISTRY_URL / REGISTRY_USERNAME / REGISTRY_PASSWORD
+#
+# 선택 Secrets (SonarQube):
+#   SONAR_HOST_URL / SONAR_TOKEN / SONAR_PROJECT_KEY / SONAR_PROJECT_NAME
+#
+# 환경별 Secrets (Settings → Environments → [환경] → Secrets):
+#   {ENV}_SERVER_HOST / {ENV}_SERVER_USER / {ENV}_SERVER_SSH_KEY
+#   {ENV}_DB_URL / {ENV}_DB_USERNAME / {ENV}_DB_PASSWORD
+#   {ENV}_REDIS_HOST / {ENV}_REDIS_PORT / {ENV}_REDIS_PASSWORD
+#   {ENV}_JWT_SECRET / {ENV}_JASYPT_PASSWORD / {ENV}_CORS_ORIGIN
+#   (ENV = DEV, STG, PROD)
+#
+# 운영 배포 수동 승인 설정:
+#   Settings → Environments → production → Required reviewers 추가
+# ============================================
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'release/**'
+  pull_request:
+    branches:
+      - main
+      - develop
+
+env:
+  API_IMAGE: ${{ secrets.REGISTRY_URL }}/backend-api
+  BATCH_IMAGE: ${{ secrets.REGISTRY_URL }}/backend-batch
+
+jobs:
+  # ============================================
+  # 빌드 (bootJar)
+  # ============================================
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      - name: Build bootJar
+        run: |
+          ./gradlew clean :module-api:bootJar :module-batch:bootJar \
+            -x test -x spotlessCheck -x checkstyleMain -x checkstyleTest \
+            -x pmdMain -x pmdTest -x spotbugsMain \
+            -Pprofile=prod --no-daemon
+
+      - name: Upload API JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-jar
+          path: |
+            module-api/build/libs/module-api-*.jar
+            !module-api/build/libs/*-plain.jar
+          retention-days: 1
+
+      - name: Upload Batch JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: batch-jar
+          path: |
+            module-batch/build/libs/module-batch-*.jar
+            !module-batch/build/libs/*-plain.jar
+          retention-days: 1
+
+      - name: Upload compiled classes (for SonarQube)
+        uses: actions/upload-artifact@v4
+        with:
+          name: compiled-classes
+          path: |
+            module-api/build/classes/
+            module-batch/build/classes/
+            module-common/build/classes/
+          retention-days: 1
+
+  # ============================================
+  # 테스트 및 코드 품질 (build와 병렬 실행)
+  # ============================================
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      - name: Run tests and code quality checks
+        run: ./gradlew check jacocoTestReport --no-daemon
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            **/build/reports/jacoco/
+            **/build/reports/checkstyle/
+            **/build/reports/pmd/
+            **/build/reports/spotbugs/
+            **/build/test-results/
+          retention-days: 7
+
+      - name: Publish test results
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: JUnit Results
+          path: '**/build/test-results/test/TEST-*.xml'
+          reporter: java-junit
+
+  # ============================================
+  # SonarQube 분석 (선택 - SONAR_HOST_URL 설정 시만 실행)
+  # sonar-scanner-cli를 사용하므로 Gradle에 SonarQube 플러그인 없이 동작한다.
+  # ============================================
+  sonarqube:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check SonarQube configuration
+        id: sonar-check
+        run: |
+          if [ -z "${{ secrets.SONAR_HOST_URL }}" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download compiled classes
+        if: steps.sonar-check.outputs.skip == 'false'
+        uses: actions/download-artifact@v4
+        with:
+          name: compiled-classes
+
+      - name: SonarQube Scan
+        if: steps.sonar-check.outputs.skip == 'false'
+        uses: sonarsource/sonarqube-scan-action@v4
+        env:
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
+            -Dsonar.projectName=${{ secrets.SONAR_PROJECT_NAME }}
+            -Dsonar.sources=module-api/src/main/java,module-batch/src/main/java,module-common/src/main/java
+            -Dsonar.java.binaries=module-api/build/classes,module-batch/build/classes,module-common/build/classes
+            -Dsonar.sourceEncoding=UTF-8
+
+  # ============================================
+  # Docker 이미지 빌드 & Push
+  # ============================================
+  docker:
+    needs: [ build, test ]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    strategy:
+      matrix:
+        include:
+          - module: api
+            dockerfile: module-api/Dockerfile
+          - module: batch
+            dockerfile: module-batch/Dockerfile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.REGISTRY_URL }}/backend-${{ matrix.module }}
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.module }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.module }}
+
+  # ============================================
+  # 개발 환경 배포
+  # ============================================
+  deploy-dev:
+    needs: docker
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    environment:
+      name: development
+      url: https://dev-api.example.com
+
+    steps:
+      - name: Deploy to Dev Server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEV_SERVER_HOST }}
+          username: ${{ secrets.DEV_SERVER_USER }}
+          key: ${{ secrets.DEV_SERVER_SSH_KEY }}
+          script: |
+            set -e
+
+            IMAGE_TAG=${{ github.sha }}
+            SHORT_SHA=${IMAGE_TAG:0:7}
+
+            # 레지스트리 로그인
+            docker login -u ${{ secrets.REGISTRY_USERNAME }} \
+              -p ${{ secrets.REGISTRY_PASSWORD }} \
+              ${{ secrets.REGISTRY_URL }}
+
+            # 이미지 Pull
+            docker pull ${{ env.API_IMAGE }}:${SHORT_SHA}
+            docker pull ${{ env.BATCH_IMAGE }}:${SHORT_SHA}
+
+            # 배포
+            cd ${{ secrets.DEV_DEPLOY_PATH }}
+            export API_IMAGE=${{ env.API_IMAGE }}
+            export BATCH_IMAGE=${{ env.BATCH_IMAGE }}
+            export IMAGE_TAG=${SHORT_SHA}
+            docker compose -f docker-compose.prod.yml up -d --force-recreate
+
+            # 미사용 이미지 정리
+            docker image prune -f
+
+            echo "Dev 배포 완료: ${SHORT_SHA}"
+
+  # ============================================
+  # 스테이징 환경 배포
+  # ============================================
+  deploy-stg:
+    needs: docker
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/heads/release/')
+    environment:
+      name: staging
+      url: https://stg-api.example.com
+
+    steps:
+      - name: Deploy to Staging Server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.STG_SERVER_HOST }}
+          username: ${{ secrets.STG_SERVER_USER }}
+          key: ${{ secrets.STG_SERVER_SSH_KEY }}
+          script: |
+            set -e
+
+            IMAGE_TAG=${{ github.sha }}
+            SHORT_SHA=${IMAGE_TAG:0:7}
+
+            docker login -u ${{ secrets.REGISTRY_USERNAME }} \
+              -p ${{ secrets.REGISTRY_PASSWORD }} \
+              ${{ secrets.REGISTRY_URL }}
+
+            docker pull ${{ env.API_IMAGE }}:${SHORT_SHA}
+            docker pull ${{ env.BATCH_IMAGE }}:${SHORT_SHA}
+
+            cd ${{ secrets.STG_DEPLOY_PATH }}
+            export API_IMAGE=${{ env.API_IMAGE }}
+            export BATCH_IMAGE=${{ env.BATCH_IMAGE }}
+            export IMAGE_TAG=${SHORT_SHA}
+            docker compose -f docker-compose.prod.yml up -d --force-recreate
+
+            docker image prune -f
+
+            echo "Staging 배포 완료: ${SHORT_SHA}"
+
+  # ============================================
+  # 운영 환경 배포
+  # ============================================
+  # 수동 승인: Settings → Environments → production → Required reviewers 추가
+  deploy-prod:
+    needs: docker
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://api.example.com
+
+    steps:
+      - name: Deploy to Production Server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PROD_SERVER_HOST }}
+          username: ${{ secrets.PROD_SERVER_USER }}
+          key: ${{ secrets.PROD_SERVER_SSH_KEY }}
+          script: |
+            set -e
+
+            IMAGE_TAG=${{ github.sha }}
+            SHORT_SHA=${IMAGE_TAG:0:7}
+
+            docker login -u ${{ secrets.REGISTRY_USERNAME }} \
+              -p ${{ secrets.REGISTRY_PASSWORD }} \
+              ${{ secrets.REGISTRY_URL }}
+
+            docker pull ${{ env.API_IMAGE }}:${SHORT_SHA}
+            docker pull ${{ env.BATCH_IMAGE }}:${SHORT_SHA}
+
+            cd ${{ secrets.PROD_DEPLOY_PATH }}
+            export API_IMAGE=${{ env.API_IMAGE }}
+            export BATCH_IMAGE=${{ env.BATCH_IMAGE }}
+            export IMAGE_TAG=${SHORT_SHA}
+            docker compose -f docker-compose.prod.yml up -d --force-recreate
+
+            docker image prune -f
+
+            echo "Production 배포 완료: ${SHORT_SHA}"

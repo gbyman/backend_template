@@ -1,0 +1,355 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.4.4' apply false
+    id 'io.spring.dependency-management' version '1.1.7' apply false
+    id 'checkstyle'
+    id 'pmd'
+    id 'com.github.spotbugs' version '6.0.26'
+    id 'com.diffplug.spotless' version '6.25.0'
+    id 'jacoco'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+// ============================================
+// Git Hooks 자동 설치
+// ============================================
+
+task installGitHooks(type: Exec) {
+    group = 'git'
+    description = 'Git Hooks 설치 (commit-msg, pre-push)'
+
+    commandLine 'bash', '.githooks/install-hooks.sh'
+
+    doFirst {
+        println '🔧 Git Hooks 설치 시작...'
+    }
+
+    doLast {
+        println '✅ Git Hooks 설치 완료'
+    }
+
+    // .git 디렉토리가 없으면 스킵 (초기 클론 시)
+    onlyIf {
+        file('.git').exists() && file('.githooks/install-hooks.sh').exists()
+    }
+}
+
+// 프로젝트 빌드 시 자동으로 Git Hooks 설치
+tasks.named('build') {
+    dependsOn installGitHooks
+}
+
+allprojects {
+    repositories {
+        // Nexus 설정이 있으면 Nexus 사용, 없으면 Maven Central 사용
+        if (project.hasProperty('nexusUrl')) {
+            maven {
+                url = project.property('mavenGroupUrl')
+                credentials {
+                    username = project.findProperty('nexusUsername') ?: System.getenv('NEXUS_USERNAME')
+                    password = project.findProperty('nexusPassword') ?: System.getenv('NEXUS_PASSWORD')
+                }
+                // 인증 실패 시 Maven Central로 fallback하지 않으려면 주석 해제
+                // allowInsecureProtocol = false
+            }
+        } else {
+            // Nexus 미사용 시 Maven Central 사용
+            mavenCentral()
+        }
+    }
+}
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'org.springframework.boot'
+    apply plugin: 'io.spring.dependency-management'
+    apply plugin: 'checkstyle'
+    apply plugin: 'pmd'
+    apply plugin: 'com.github.spotbugs'
+    apply plugin: 'com.diffplug.spotless'
+    apply plugin: 'jacoco'
+
+    group = 'app'
+    version = '0.0.1-SNAPSHOT'
+
+    ext {
+        // Core
+        mapstructVersion = '1.6.3'
+        profile = project.hasProperty("profile") ? project.getProperty("profile") : "local"
+
+        // Database & Persistence
+        mybatisVersion = '3.0.4'
+        p6spyVersion = '1.11.0'
+
+        // Cloud Storage
+        awsSdkVersion = '2.31.3'
+        azureBlobVersion = '12.29.1'
+
+        // Batch & Scheduling
+        shedlockVersion = '5.10.0'
+
+        // API & Documentation
+        springdocVersion = '2.8.5'
+
+        // Resilience
+        resilience4jVersion = '2.2.0'
+
+        // Utils
+        commonsIoVersion = '2.18.0'
+        commonsValidatorVersion = '1.9.0'
+        jsoupVersion = '1.18.1'
+        poiVersion = '5.2.5'
+
+        // Security
+        jasyptVersion = '3.0.5'
+
+        // Logging
+        logstashVersion = '8.0'
+        logbackElasticsearchVersion = '1.6'
+    }
+
+    // ============================================
+    // API/Batch 모듈 공통 설정 (WAR 배포)
+    // ============================================
+    if (project.name in ['module-api', 'module-batch']) {
+        apply plugin: 'war'
+
+        bootJar {
+            enabled = true
+        }
+
+        // WAR 배포 설정
+        // 외부 WAS(Tomcat, JBoss 등)에 배포할 경우:
+        //   1. bootWar.enabled = true, bootJar.enabled = false 로 변경
+        //   2. ServletInitializer.java 가 이미 준비되어 있음
+        //   3. 빌드: ./gradlew :module-api:bootWar -Pprofile=prod
+        //   4. 생성된 WAR 파일을 WAS의 webapps/ 폴더에 배포
+        bootWar {
+            enabled = false
+        }
+
+        war {
+            enabled = false
+        }
+    }
+
+    // ============================================
+    // Windows 환경 annotationProcessor 설정
+    // ============================================
+    // QueryDSL, MapStruct 등 annotationProcessor를 사용하는 모듈만 적용
+    if (project.name in ['module-api', 'module-common']) {
+        def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
+
+        sourceSets {
+            main {
+                // Windows가 아닌 경우에만 java srcDirs 추가
+                if (!isWindows) {
+                    java {
+                        srcDirs += 'build/generated/sources/annotationProcessor/java/main'
+                    }
+                }
+            }
+        }
+
+        clean {
+            if (isWindows) {
+                delete file('src/main/generated')
+            } else {
+                delete file('build/generated/sources/annotationProcessor')
+            }
+        }
+    }
+
+    configurations {
+        compileOnly {
+            extendsFrom annotationProcessor
+        }
+    }
+
+    dependencies {
+        compileOnly 'org.projectlombok:lombok'
+
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+        annotationProcessor 'org.projectlombok:lombok'
+    }
+
+    // 환경별 리소스 디렉토리 (resources-local, resources-dev, resources-prod)
+    sourceSets {
+        main {
+            resources {
+                srcDirs = [
+                    "src/main/resources",
+                    "src/main/resources-${profile}"
+                ]
+            }
+        }
+    }
+
+    tasks {
+        processResources {
+            duplicatesStrategy = DuplicatesStrategy.INCLUDE
+        }
+    }
+
+    tasks.named('test') {
+        useJUnitPlatform()
+        finalizedBy jacocoTestReport // 테스트 후 자동으로 커버리지 리포트 생성
+    }
+
+    // ============================================
+    // 코드 품질 도구 설정
+    // ============================================
+
+    // 1. Checkstyle - 코딩 스타일 검사
+    checkstyle {
+        toolVersion = '10.12.5'
+        configFile = file("${rootProject.projectDir}/config/checkstyle/checkstyle.xml")
+        configProperties = [
+                'suppressionFile': "${rootProject.projectDir}/config/checkstyle/suppressions.xml"
+        ]
+        maxWarnings = Integer.MAX_VALUE // 경고는 빌드 실패로 처리하지 않음
+        ignoreFailures = false
+    }
+
+    tasks.withType(Checkstyle) {
+        reports {
+            xml.required = true
+            html.required = true
+        }
+        // 생성된 코드(QueryDSL Q-class, MapStruct Impl 등) 제외
+        source = source.filter { !it.path.contains('/generated/') }
+    }
+
+    // 2. PMD - 코드 품질 검사 (잠재적 버그, 안티패턴)
+    pmd {
+        toolVersion = '7.0.0'
+        ruleSetFiles = files("${rootProject.projectDir}/config/pmd/ruleset.xml")
+        ignoreFailures = false
+        consoleOutput = true
+        ruleSets = [] // 커스텀 ruleset 사용 시 기본 ruleset 비활성화
+    }
+
+    tasks.withType(Pmd) {
+        reports {
+            xml.required = true
+            html.required = true
+        }
+        // 생성된 코드(QueryDSL Q-class, MapStruct Impl 등) 제외
+        source = source.filter { !it.path.contains('/generated/') }
+    }
+
+    // 3. SpotBugs - 정적 분석 (버그 탐지)
+    spotbugs {
+        toolVersion = '4.8.3'
+        ignoreFailures = false
+        excludeFilter = file("${rootProject.projectDir}/config/spotbugs/exclude.xml")
+    }
+
+    tasks.withType(com.github.spotbugs.snom.SpotBugsTask) {
+        effort = com.github.spotbugs.snom.Effort.MAX
+        reports {
+            xml.required = false
+            html.required = true
+        }
+    }
+
+    // 4. Spotless - 코드 포맷터 (자동 정리)
+    spotless {
+        java {
+            target 'src/**/*.java'
+
+            // Google Java Format 사용 (또는 eclipse(), palantirJavaFormat() 선택 가능)
+            googleJavaFormat('1.18.1').aosp() // AOSP 스타일: 4 spaces
+
+            // import 순서 정렬 (Checkstyle ImportOrder 규칙과 일치)
+            importOrder('java', 'javax', 'org', 'com', '')
+
+            // 불필요한 import 제거
+            removeUnusedImports()
+
+            // 줄 끝 공백 제거
+            trimTrailingWhitespace()
+
+            // 파일 끝에 빈 줄 추가
+            endWithNewline()
+
+            // 라이센스 헤더 (선택 사항)
+            // licenseHeaderFile "${rootProject.projectDir}/config/license-header.txt"
+        }
+
+        // Gradle 파일 포맷
+        groovyGradle {
+            target '*.gradle'
+            greclipse()
+        }
+    }
+
+    // 5. Jacoco - 테스트 커버리지
+    jacoco {
+        toolVersion = '0.8.11'
+    }
+
+    jacocoTestReport {
+        dependsOn test
+
+        reports {
+            xml.required = true
+            html.required = true
+            csv.required = false
+        }
+
+        afterEvaluate {
+            classDirectories.setFrom(files(classDirectories.files.collect {
+                fileTree(dir: it, exclude: [
+                        '**/Q*.class',                    // QueryDSL 생성 클래스
+                        '**/*Entity.class',               // JPA Entity
+                        '**/*Dto.class',                  // DTO
+                        '**/*Vo.class',                   // VO
+                        '**/*Request.class',              // Request 클래스
+                        '**/*Response.class',             // Response 클래스
+                        '**/*Config.class',               // Configuration
+                        '**/*Application.class',          // Application 메인 클래스
+                        '**/constants/**',                // 상수 클래스
+                        '**/exception/**/*Exception.class'// Exception 클래스
+                ])
+            }))
+        }
+    }
+
+    jacocoTestCoverageVerification {
+        violationRules {
+            rule {
+                limit {
+                    minimum = 0.70 // 최소 70% 커버리지
+                }
+            }
+        }
+    }
+
+    // ============================================
+    // 통합 검증 태스크
+    // ============================================
+
+    // 모든 코드 품질 검사를 한 번에 실행
+    task codeQuality {
+        group = 'verification'
+        description = '모든 코드 품질 검사 실행 (Checkstyle, PMD, SpotBugs, Spotless)'
+        dependsOn 'spotlessCheck', 'checkstyleMain', 'checkstyleTest', 'pmdMain', 'pmdTest', 'spotbugsMain'
+    }
+
+    // 코드 자동 포맷팅 + 검증
+    task formatAndCheck {
+        group = 'verification'
+        description = '코드 자동 포맷팅 후 검증'
+        dependsOn 'spotlessApply', 'codeQuality'
+    }
+
+    // build 시 자동으로 코드 품질 검사 실행
+    check.dependsOn codeQuality
+}

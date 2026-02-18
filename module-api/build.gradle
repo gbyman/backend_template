@@ -1,0 +1,75 @@
+// WAR 플러그인 및 bootJar/bootWar 설정은 루트 build.gradle에서 통합 관리됨
+
+ext {
+	jwtVersion = '0.12.6'
+}
+
+dependencies {
+
+	// module-common (api scope로 다음 의존성이 전이됩니다:
+	//   web, security, validation, data-jpa, data-redis, querydsl-jpa,
+	//   aop, p6spy, postgresql, springdoc, commons-lang3, jsoup 등)
+	implementation project(':module-common')
+
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+	// cache
+	implementation 'org.springframework.boot:spring-boot-starter-cache'
+
+	// MapStruct (annotationProcessor - 코드 생성용, api 의존성은 module-common에서 전이)
+	annotationProcessor "org.mapstruct:mapstruct-processor:${mapstructVersion}"
+	testAnnotationProcessor "org.mapstruct:mapstruct-processor:${mapstructVersion}"
+
+	// MyBatis
+	implementation "org.mybatis.spring.boot:mybatis-spring-boot-starter:${mybatisVersion}"
+
+	// Flyway
+	implementation 'org.flywaydb:flyway-core'
+	implementation 'org.flywaydb:flyway-database-postgresql'
+
+	// QueryDSL (annotationProcessor - Q-class 코드 생성용, api 의존성은 module-common에서 전이)
+	annotationProcessor "com.querydsl:querydsl-apt:${dependencyManagement.importedProperties['querydsl.version']}:jakarta"
+	annotationProcessor "jakarta.annotation:jakarta.annotation-api"
+	annotationProcessor "jakarta.persistence:jakarta.persistence-api"
+
+	// io
+	implementation "commons-io:commons-io:${commonsIoVersion}"
+
+	// jwt
+	implementation "io.jsonwebtoken:jjwt-api:${jwtVersion}"
+	implementation "io.jsonwebtoken:jjwt-impl:${jwtVersion}"
+	implementation "io.jsonwebtoken:jjwt-jackson:${jwtVersion}"
+
+	// rate limiting (Resilience4j)
+	implementation "io.github.resilience4j:resilience4j-spring-boot3:${resilience4jVersion}"
+	implementation "io.github.resilience4j:resilience4j-ratelimiter:${resilience4jVersion}"
+
+	// AWS S3 (S3 저장소를 사용하지 않으면 이 의존성과 s3 패키지를 삭제하세요)
+	implementation "software.amazon.awssdk:s3:${awsSdkVersion}"
+
+	// Azure Blob Storage (Azure를 사용하지 않으면 이 의존성과 azure 패키지를 삭제하세요)
+	implementation "com.azure:azure-storage-blob:${azureBlobVersion}"
+
+	// Email (이메일 기능을 사용하지 않으면 이 의존성과 mail 패키지를 삭제하세요)
+	implementation 'org.springframework.boot:spring-boot-starter-mail'
+
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
+	// Test Dependencies (spring-boot-starter-test, lombok, junit-platform은 root subprojects에서 전이)
+	testImplementation 'org.springframework.security:spring-security-test'
+
+	// H2 Database (테스트용 인메모리 DB)
+	testImplementation 'com.h2database:h2'
+
+	// REST Assured (REST API 테스트 - 선택적)
+	testImplementation 'io.rest-assured:rest-assured:5.5.0'
+	testImplementation 'io.rest-assured:spring-mock-mvc:5.5.0'
+
+	// TestContainers (실제 DB 컨테이너로 통합 테스트 - 선택적)
+	// 필요시 주석 해제
+	// testImplementation 'org.testcontainers:testcontainers:1.19.0'
+	// testImplementation 'org.testcontainers:postgresql:1.19.0'
+	// testImplementation 'org.testcontainers:junit-jupiter:1.19.0'
+}
+
+// Windows 설정은 루트 build.gradle에서 통합 관리됨

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="app.backend.app.sample.mapper.SampleMapper">
+
+    <resultMap id="SampleResultMap" type="app.backend.app.sample.dto.SampleRespDto">
+        <id property="id" column="SAMPLE_ID"/>
+        <result property="title" column="TITLE"/>
+        <result property="content" column="CONTENT"/>
+        <result property="useYn" column="USE_YN"/>
+        <result property="regUserId" column="REG_USER_ID"/>
+        <result property="regDatetime" column="REG_DATETIME"/>
+        <result property="updaterId" column="UPDATER_ID"/>
+        <result property="updateDatetime" column="UPDATE_DATETIME"/>
+    </resultMap>
+
+    <select id="findAll" resultMap="SampleResultMap">
+        SELECT
+            SAMPLE_ID,
+            TITLE,
+            CONTENT,
+            USE_YN,
+            REG_USER_ID,
+            REG_DATETIME,
+            UPDATER_ID,
+            UPDATE_DATETIME
+        FROM TB_SAMPLE
+        WHERE USE_YN = 'Y'
+        ORDER BY SAMPLE_ID DESC
+    </select>
+
+    <select id="findById" resultMap="SampleResultMap">
+        SELECT
+            SAMPLE_ID,
+            TITLE,
+            CONTENT,
+            USE_YN,
+            REG_USER_ID,
+            REG_DATETIME,
+            UPDATER_ID,
+            UPDATE_DATETIME
+        FROM TB_SAMPLE
+        WHERE SAMPLE_ID = #{id}
+    </select>
+
+</mapper>

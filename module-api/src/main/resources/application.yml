@@ -1,0 +1,152 @@
+spring:
+  application:
+    name: backend_template
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
+  # 공통 MyBatis 설정
+  mybatis:
+    mapper-locations: classpath:mybatis/mapper/**/*.xml
+    type-aliases-package: app.backend
+    configuration:
+      map-underscore-to-camel-case: true
+      default-fetch-size: 100
+      default-statement-timeout: 30
+
+  # Spring Mail 설정 (mail.enabled: true일 때 사용)
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+
+# Jasypt 암호화 설정
+jasypt:
+  encryptor:
+    password: ${JASYPT_ENCRYPTOR_PASSWORD:default-secret-key}
+    algorithm: PBEWithMD5AndDES
+    key-obtention-iterations: 1000
+    pool-size: 1
+    salt-generator-classname: org.jasypt.salt.RandomSaltGenerator
+    iv-generator-classname: org.jasypt.iv.NoIvGenerator
+    string-output-type: base64
+
+# JWT 설정
+jwt:
+  # Redis 사용 여부
+  # - true: 중복 로그인 방지, 즉시 로그아웃, 토큰 블랙리스트 기능 사용 (stateful)
+  # - false: 순수 JWT stateless 모드, Redis 불필요 (권장: B2C 서비스, 높은 확장성)
+  use-redis: false
+  secret: ${JWT_SECRET:eW91ci1zZWNyZXQta2V5LWZvci1qd3QtdG9rZW4tYXQtbGVhc3QtNTEyLWJpdHMtbG9uZy1zdHJpbmctY2hhbmdlLXRoaXMtaW4tcHJvZHVjdGlvbi1lbnZpcm9ubWVudA==}
+  access-expiration-duration: 30m
+  refresh-expiration-duration: 7d
+  refresh-cookie-secure: false
+
+# 중복 로그인 허용 ID 목록 (Redis 사용 시에만 의미 있음)
+allow-duplicate:
+  ids:
+
+# 파일 저장소 설정
+storage:
+  # type: local, s3, azure
+  type: local
+  # 로컬 저장소 설정
+  local:
+    upload-path: ${LOCAL_UPLOAD_PATH:./uploads}
+  # AWS S3 설정 (type: s3일 때 사용)
+  s3:
+    bucket-name: ${S3_BUCKET_NAME:}
+    region: ${S3_REGION:ap-northeast-2}
+    access-key: ${AWS_ACCESS_KEY:}
+    secret-key: ${AWS_SECRET_KEY:}
+  # Azure Blob Storage 설정 (type: azure일 때 사용)
+  azure:
+    container-name: ${AZURE_CONTAINER_NAME:}
+    connection-string: ${AZURE_STORAGE_CONNECTION_STRING:}
+
+# 메일 발송 설정
+mail:
+  enabled: false
+  from-address: ${MAIL_FROM_ADDRESS:noreply@example.com}
+
+# 파일 업로드 설정
+file-upload:
+  # 시스템 전체에서 기본으로 허용할 파일 확장자
+  # 개별 @ValidFileExtension에서 allowed 지정 시 해당 값으로 오버라이드됨
+  allowed-extensions:
+    - jpg
+    - jpeg
+    - png
+    - gif
+    - pdf
+    - doc
+    - docx
+    - xls
+    - xlsx
+    - ppt
+    - pptx
+    - txt
+    - zip
+  # 기본 최대 파일 크기 (바이트) - 10MB
+  max-size-in-bytes: 10485760
+
+# 로깅 설정
+logging:
+  aspect:
+    # DB 기반 API 접근 로그 활성화 여부
+    enabled: true
+    # 로깅 제외 URL 패턴 (AntPathMatcher 패턴)
+    exclude-urls:
+      - /actuator/**
+      - /health
+      - /swagger-ui/**
+      - /v3/api-docs/**
+      - /favicon.ico
+
+# 애플리케이션 설정
+app:
+  # 다국어 (i18n) 설정
+  i18n:
+    # 기본 언어 코드 (ISO 639-1 소문자)
+    default-lang: ko
+    # 지원 언어 목록 (새 언어 추가 시 여기에 추가)
+    supported-langs: ko, en
+
+  # Rate Limiting 설정
+  rate-limit:
+    # 활성화 여부 (성능 테스트 시 RATE_LIMIT_ENABLED=false로 비활성화 가능)
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    # 전역 Rate Limit (IP 기반, 모든 API)
+    global:
+      # IP당 허용 요청 수
+      capacity: 100
+      # 기간 (초) - 60초 = 1분
+      duration-seconds: 60
+
+# 공통 Swagger 설정
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    info:
+      title: Backend Template API
+      description: Spring Boot Template with JPA and MyBatis
+      version: 1.0.0
+      jwt-header-enabled: true
+      contact:
+        name: Developer
+        email: developer@example.com
+        url: https://example.com
+      license:
+        name: Apache 2.0
+        url: https://www.apache.org/licenses/LICENSE-2.0.html

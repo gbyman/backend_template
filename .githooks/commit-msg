@@ -17,7 +17,7 @@
 
 # 커밋 메시지 파일 경로
 COMMIT_MSG_FILE=$1
-COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+COMMIT_MSG=$(/bin/cat "$COMMIT_MSG_FILE")
 
 # Conventional Commits 정규식 패턴
 # 형식: <type>(<scope>): <subject>

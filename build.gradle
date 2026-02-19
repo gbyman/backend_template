@@ -44,6 +44,11 @@ tasks.named('build') {
     dependsOn installGitHooks
 }
 
+// 컴파일 시에도 자동 설치 (bootRun, IDE 실행 시에도 적용)
+tasks.named('compileJava') {
+    dependsOn installGitHooks
+}
+
 allprojects {
     repositories {
         // Nexus 설정이 있으면 Nexus 사용, 없으면 Maven Central 사용

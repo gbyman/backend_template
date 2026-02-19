@@ -105,6 +105,9 @@ jobs:
   # ============================================
   test:
     runs-on: ubuntu-latest
+    permissions:
+      checks: write       # dorny/test-reporter가 Check Run 생성에 필요
+      pull-requests: write  # PR에 테스트 결과 코멘트 작성에 필요
 
     steps:
       - name: Checkout

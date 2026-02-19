@@ -77,6 +77,9 @@ management:
   endpoint:
     health:
       show-details: always
+  health:
+    mail:
+      enabled: false  # 로컬은 메일 서버 미설정이므로 헬스체크 비활성화
 
 # Security 공개 URI 설정
 security:

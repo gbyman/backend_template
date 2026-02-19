@@ -147,50 +147,6 @@
         </encoder>
     </appender>
 
-    <!-- Elasticsearch 직접 전송 Appender (Logstash 없이) -->
-    <appender name="ELASTIC" class="com.internetitem.logback.elasticsearch.ElasticsearchAppender">
-        <url>http://${ELASTICSEARCH_HOST}:${ELASTICSEARCH_PORT}/_bulk</url>
-        <index>backend-logs-%date{yyyy.MM.dd}</index>
-        <type>_doc</type>
-        <loggerName>es-logger</loggerName>
-        <errorLoggerName>es-error-logger</errorLoggerName>
-
-        <!-- 성능 설정 -->
-        <connectTimeout>30000</connectTimeout>
-        <readTimeout>30000</readTimeout>
-        <maxQueueSize>104857600</maxQueueSize>
-        <maxRetries>3</maxRetries>
-        <sleepTime>250</sleepTime>
-
-        <!-- MDC 포함 -->
-        <includeMdc>true</includeMdc>
-
-        <!-- 커스텀 필드 추가 -->
-        <properties>
-            <property>
-                <name>app</name>
-                <value>${APP_NAME}</value>
-            </property>
-            <property>
-                <name>env</name>
-                <value>${SPRING_PROFILES_ACTIVE:-local}</value>
-            </property>
-        </properties>
-
-        <!-- 에러 처리 -->
-        <errorsToStderr>false</errorsToStderr>
-        <logsToStderr>false</logsToStderr>
-        <includeCallerData>false</includeCallerData>
-    </appender>
-
-    <!-- 비동기 Elasticsearch Appender -->
-    <appender name="ASYNC_ELASTIC" class="ch.qos.logback.classic.AsyncAppender">
-        <appender-ref ref="ELASTIC"/>
-        <queueSize>512</queueSize>
-        <discardingThreshold>0</discardingThreshold>
-        <neverBlock>false</neverBlock>
-    </appender>
-
     <!-- ========== Profile별 설정 ========== -->
 
     <!-- Local 환경: 콘솔만 사용 -->
@@ -245,6 +201,38 @@
     <!-- Elasticsearch 직접 전송 환경 (Logstash 없이) -->
     <!-- 사용법: SPRING_PROFILES_ACTIVE=prod,elasticsearch 또는 dev,elasticsearch -->
     <springProfile name="elasticsearch">
+        <appender name="ELASTIC" class="com.internetitem.logback.elasticsearch.ElasticsearchAppender">
+            <url>http://${ELASTICSEARCH_HOST}:${ELASTICSEARCH_PORT}/_bulk</url>
+            <index>backend-logs-%date{yyyy.MM.dd}</index>
+            <type>_doc</type>
+            <loggerName>es-logger</loggerName>
+            <errorLoggerName>es-error-logger</errorLoggerName>
+            <connectTimeout>30000</connectTimeout>
+            <readTimeout>30000</readTimeout>
+            <maxQueueSize>104857600</maxQueueSize>
+            <maxRetries>3</maxRetries>
+            <sleepTime>250</sleepTime>
+            <includeMdc>true</includeMdc>
+            <properties>
+                <property>
+                    <name>app</name>
+                    <value>${APP_NAME}</value>
+                </property>
+                <property>
+                    <name>env</name>
+                    <value>${SPRING_PROFILES_ACTIVE:-local}</value>
+                </property>
+            </properties>
+            <errorsToStderr>false</errorsToStderr>
+            <logsToStderr>false</logsToStderr>
+            <includeCallerData>false</includeCallerData>
+        </appender>
+        <appender name="ASYNC_ELASTIC" class="ch.qos.logback.classic.AsyncAppender">
+            <appender-ref ref="ELASTIC"/>
+            <queueSize>512</queueSize>
+            <discardingThreshold>0</discardingThreshold>
+            <neverBlock>false</neverBlock>
+        </appender>
         <root level="INFO">
             <appender-ref ref="ASYNC_ELASTIC"/>
         </root>

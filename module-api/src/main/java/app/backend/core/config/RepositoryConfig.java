@@ -9,7 +9,8 @@ import org.springframework.data.redis.repository.configuration.EnableRedisReposi
 @EnableJpaRepositories(
         basePackages = {
             "app.backend.app", // 애플리케이션 도메인 Repository (JPA)
-            "app.backend.infra" // 인프라 Repository (JPA)
+            "app.backend.infra", // 인프라 Repository (JPA)
+            "app.backend.core.repository" // 공통 모듈 Repository (module-common)
         })
 @EnableRedisRepositories(
         basePackages = "app.backend.core.jwt.domain.refreshtoken.repository" // Redis Repository만 스캔

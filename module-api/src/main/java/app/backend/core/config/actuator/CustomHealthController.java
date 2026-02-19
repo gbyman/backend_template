@@ -50,15 +50,14 @@ public class CustomHealthController extends AbstractController {
     @GetMapping("/health")
     public Map<String, Object> health() {
         HealthComponent healthComponent = healthEndpoint.health();
-        Health health = (Health) healthComponent;
 
         Map<String, Object> response = new HashMap<>();
-        response.put("status", health.getStatus().getCode());
+        response.put("status", healthComponent.getStatus().getCode());
         response.put("profile", activeProfile);
         response.put("timestamp", LocalDateTime.now());
 
         // 로컬 환경에서만 상세 정보 표시
-        if ("local".equals(activeProfile)) {
+        if ("local".equals(activeProfile) && healthComponent instanceof Health health) {
             response.put("details", health.getDetails());
         }
 

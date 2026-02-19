@@ -24,8 +24,7 @@ public class RateLimiterRegistryConfig {
     public RateLimiterRegistry rateLimiterRegistry() {
         RateLimiterConfig config =
                 RateLimiterConfig.custom()
-                        .limitForPeriod(
-                                (int) rateLimitProperties.getGlobal().getCapacity())
+                        .limitForPeriod((int) rateLimitProperties.getGlobal().getCapacity())
                         .limitRefreshPeriod(
                                 Duration.ofSeconds(
                                         rateLimitProperties.getGlobal().getDurationSeconds()))
